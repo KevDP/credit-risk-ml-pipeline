@@ -1,0 +1,30 @@
+{
+  "empirical_lgd": 0.35252899801282367,
+  "empirical_margin": 0.17257017764318625,
+  "fixed_lgd": 0.65,
+  "fixed_margin": 0.12,
+  "fixed": {
+    "threshold": 0.15584415584415584,
+    "approval_rate": 0.05546877760893381,
+    "realized_profit": 5379446.768488297,
+    "book_default_rate": 0.03166411824668705
+  },
+  "empirical": {
+    "threshold": 0.32864301763108494,
+    "approval_rate": 0.27196169205216103,
+    "realized_profit": 11496203.07047054,
+    "book_default_rate": 0.07875826760398665
+  },
+  "approve_all": {
+    "threshold": 1.0,
+    "approval_rate": 1.0,
+    "realized_profit": -274472930.2320085,
+    "book_default_rate": 0.21819627522352192
+  },
+  "oracle": {
+    "threshold": 0.32,
+    "approval_rate": 0.25752906668551434,
+    "realized_profit": 11749610.760540739,
+    "book_default_rate": 0.07602266957583742
+  }
+}

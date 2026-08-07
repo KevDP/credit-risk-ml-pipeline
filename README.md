@@ -1,10 +1,12 @@
 # Credit Risk ML Pipeline
 
-End-to-end, scale-to-zero pipeline that predicts consumer loan default and serves the model behind a serverless API. 
+A scale-to-zero pipeline that predicts consumer loan default, with a serverless serving layer as its target deployment (see Status). 
 Built as a business case: it starts from a lending decision and its asymmetric costs, not from a leaderboard metric.
 
-> Status: in active development. This README documents the design
-> Results are filled in as each phase lands (see Roadmap).
+> **Status (Phase 1 complete):** the modeling pipeline (data, features, training,
+> evaluation, cost calibration, validation) is built and tested. The serverless
+> serving layer and CI are planned (Phases 2 to 3); the architecture below is the
+> target design, not yet deployed.
 
 ## The business problem
 
@@ -30,7 +32,7 @@ The project spans the full lifecycle an ML engineer owns, not just the model.
 
 1. **Data science (notebook).** EDA, a defensible feature set, honest validation (leakage removal, cross-validation), model comparison, and threshold selection by expected business cost.
 2. **Engineering (`src/`).** The same logic refactored into a tested, notebook-independent Python package: data, features, training, evaluation, and inference.
-3. **Serving (serverless).** The model behind AWS Lambda + API Gateway, scaling to zero so idle cost is effectively $0.
+3. **Serving (serverless, planned).** The model behind AWS Lambda + API Gateway, scaling to zero so idle cost is effectively $0. Not yet built (Phase 3).
 
 ## Architecture
 
@@ -40,9 +42,7 @@ Client  -> API Gateway
         -> prediction                  
 ```
 
-Training runs on demand (locally or as an ephemeral SageMaker training job) and writes the model artifact to S3.
-Serving is fully serverless. Nothing runs whenno one is calling it, which is the design constraint: no always-on resources,
-teardown with a single `terraform destroy`.
+**Target architecture (Phase 3, not yet built).** Training runs on demand (locally or as an ephemeral SageMaker training job) and writes the model artifact to S3. Serving is fully serverless: nothing runs when no one is calling it, which is the design constraint (no always-on resources, teardown with a single `terraform destroy`).
 
 ## Repository structure
 
