@@ -1,0 +1,18 @@
+{
+  "best_params": {
+    "n_estimators": 329,
+    "learning_rate": 0.04053033900488057,
+    "num_leaves": 38,
+    "min_child_samples": 180,
+    "subsample": 0.7696247859382472,
+    "colsample_bytree": 0.5105207543416896,
+    "reg_lambda": 0.5249088148094267,
+    "reg_alpha": 0.0037081490844582286
+  },
+  "best_valid_roc_auc": 0.7288720885732154,
+  "test_roc_auc_default": 0.7254644507321821,
+  "test_roc_auc_tuned": 0.7263748838933441,
+  "test_roc_auc_lift": 0.0009104331611620164,
+  "n_trials": 40,
+  "sample": 500000
+}

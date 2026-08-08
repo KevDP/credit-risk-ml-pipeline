@@ -27,6 +27,7 @@ dev = [
     "jupyter>=1.0",
     "ipykernel>=6.29",
     "seaborn>=0.13",
+    "optuna>=3.6",
 ]
 serving = [
     "fastapi>=0.111",

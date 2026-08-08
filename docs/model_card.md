@@ -68,6 +68,10 @@ Against a logistic-regression scorecard (the interpretable, regulator-friendly s
 
 LightGBM improves ROC-AUC by +0.020, enough to justify the added complexity, while the interpretable baseline stays within ~2 points as a fallback.
 
+## Hyperparameter tuning
+
+A 40-trial Optuna search (TPE sampler) over the LightGBM hyperparameters, scored on a time-based validation slice of the training data (the test set left untouched), improved the held-out ROC-AUC by only +0.0009 over the hand-picked defaults. The defaults are kept: the search confirms the hyperparameters are not the performance bottleneck. The ceiling here is set by the features and the intrinsic difficulty of the problem, so feature work, not further tuning, is the lever for future gains.
+
 ## Probability calibration
 
 Raw LightGBM scores are miscalibrated (Brier 0.212), in part because `scale_pos_weight` inflates them to offset the class imbalance: class weighting helps ranking but hurts calibration. Isotonic calibration fit on a held-out slice of the training data lowers the test Brier to 0.157 (about 26% better). The served model should return calibrated scores, and the decision threshold should be set on them.
@@ -143,6 +147,7 @@ python -m credit_risk.threshold_study   # threshold_study.json + profit_curve.cs
 python -m credit_risk.interpret         # shap_importance.json
 python -m credit_risk.ablation          # ablation.json
 python -m credit_risk.validate          # validation.json (baseline, calibration, temporal)
+python -m credit_risk.tune              # tuning.json (Optuna hyperparameter search)
 ```
 
 All metrics referenced above are written to `experiments/`.
