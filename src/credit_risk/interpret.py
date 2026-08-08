@@ -33,7 +33,7 @@ def shap_importance(model, X, max_samples: int = 20000) -> dict:
     if values.ndim == 3:  # a binary classifier may return a per-class slab
         values = values[1] if values.shape[0] == 2 else values[..., 1]
     mean_abs = np.abs(values).mean(axis=0)
-    importance = {col: float(v) for col, v in zip(X.columns, mean_abs)}
+    importance = {col: float(v) for col, v in zip(X.columns, mean_abs, strict=False)}
     return dict(sorted(importance.items(), key=lambda kv: kv[1], reverse=True))
 
 
