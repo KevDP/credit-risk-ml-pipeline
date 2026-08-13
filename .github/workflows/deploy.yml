@@ -1,0 +1,37 @@
+name: Build and push serving image
+
+# Manual trigger: building/pushing the Lambda image is intentional, not on every
+# commit. Requires the repo variable AWS_DEPLOY_ROLE_ARN (see infra/README.md).
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write # for AWS OIDC
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: credit-risk-scoring
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker build -t "$REGISTRY/$ECR_REPOSITORY:latest" -f serving/Dockerfile .
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
