@@ -6,6 +6,10 @@
 # not, and the base image has no C compiler to build them from source).
 FROM public.ecr.aws/lambda/python:3.13
 
+# lightgbm's native library needs the OpenMP runtime (libgomp), which the base
+# image does not include; without it importing lightgbm fails at dlopen.
+RUN dnf install -y libgomp && dnf clean all
+
 WORKDIR ${LAMBDA_TASK_ROOT}
 
 # Install the package with its serving extras (FastAPI, Pydantic, Mangum, boto3).
