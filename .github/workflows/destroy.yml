@@ -1,12 +1,11 @@
-name: Deploy
+name: Destroy
 
-# Manual trigger: deploying is intentional, not on every commit. Requires the
-# repo variable AWS_DEPLOY_ROLE_ARN and the one-time bootstrap (see infra/README).
+# Tear the deployed stack down to $0. Manual trigger.
 on:
   workflow_dispatch:
 
 permissions:
-  id-token: write # for AWS OIDC
+  id-token: write
   contents: read
 
 env:
@@ -14,7 +13,7 @@ env:
   PROJECT: credit-risk-scoring
 
 jobs:
-  deploy:
+  destroy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,19 +40,5 @@ jobs:
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${PROJECT}-tflock"
 
-      - name: Create ECR repository
-        run: terraform -chdir=infra apply -auto-approve -target=aws_ecr_repository.this
-
-      - name: Build and push image
-        run: |
-          REPO=$(terraform -chdir=infra output -raw ecr_repository_url)
-          aws ecr get-login-password --region "$AWS_REGION" \
-            | docker login --username AWS --password-stdin "${REPO%%/*}"
-          docker build -t "$REPO:latest" -f serving/Dockerfile .
-          docker push "$REPO:latest"
-
-      - name: Terraform apply (Lambda + API Gateway)
-        run: terraform -chdir=infra apply -auto-approve
-
-      - name: Show endpoint
-        run: terraform -chdir=infra output -raw predict_url
+      - name: Terraform destroy
+        run: terraform -chdir=infra destroy -auto-approve

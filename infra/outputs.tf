@@ -10,15 +10,5 @@ output "predict_url" {
 
 output "ecr_repository_url" {
   value       = aws_ecr_repository.this.repository_url
-  description = "ECR repo to push the Lambda image to."
-}
-
-output "github_actions_role_arn" {
-  value       = aws_iam_role.github_actions.arn
-  description = "Set this as the GitHub Actions repo variable AWS_DEPLOY_ROLE_ARN."
-}
-
-output "model_bucket" {
-  value       = aws_s3_bucket.model.bucket
-  description = "S3 bucket to upload the model artifact to."
+  description = "ECR repo the image is pushed to."
 }

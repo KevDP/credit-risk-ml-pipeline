@@ -24,7 +24,7 @@ env/
 .ipynb_checkpoints/
 
 # --- Terraform (keep .terraform.lock.hcl committed) ---
-infra/.terraform/
+.terraform/
 *.tfstate
 *.tfstate.*
 *.tfvars

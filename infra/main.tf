@@ -1,8 +1,7 @@
-# Serverless deployment for the credit-risk scoring API.
-# FastAPI app on AWS Lambda (container image) behind an HTTP API Gateway. The
-# model is streamed from S3 at cold start. GitHub Actions builds and pushes the
-# image via an OIDC-assumed role. Scale-to-zero: idle cost ~$0; `terraform
-# destroy` returns everything to $0.
+# Serverless deployment for the credit-risk scoring API, deployed via GitHub
+# Actions. The one-time OIDC deploy role, the Terraform state backend, the model
+# bucket, and the budget live in infra/bootstrap. The Lambda streams the model
+# from S3 at cold start. Scale-to-zero: idle cost ~$0; `terraform destroy` -> $0.
 
 terraform {
   required_version = ">= 1.5"
@@ -12,6 +11,9 @@ terraform {
       version = "~> 5.0"
     }
   }
+  # Partial config; the bucket/key/region/dynamodb_table are passed by the
+  # workflow via `terraform init -backend-config=...`.
+  backend "s3" {}
 }
 
 provider "aws" {
@@ -20,86 +22,20 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-# --- GitHub OIDC provider: reference the existing one, or create it ---
-data "aws_iam_openid_connect_provider" "github" {
-  count = var.create_github_oidc_provider ? 0 : 1
-  url   = "https://token.actions.githubusercontent.com"
-}
-
-resource "aws_iam_openid_connect_provider" "github" {
-  count           = var.create_github_oidc_provider ? 1 : 0
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
-}
-
 locals {
-  github_oidc_arn = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
-  model_key       = "model.joblib"
+  model_bucket = "${var.project_name}-model-${data.aws_caller_identity.current.account_id}"
+  model_key    = "model.joblib"
 }
 
 # --- ECR: holds the Lambda container image ---
 resource "aws_ecr_repository" "this" {
   name                 = var.project_name
   image_tag_mutability = "MUTABLE"
-  force_delete         = true # so `terraform destroy` also removes pushed images
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
   }
-}
-
-# --- CI role: GitHub Actions assumes this via OIDC to push the image to ECR ---
-resource "aws_iam_role" "github_actions" {
-  name = "${var.project_name}-github-actions"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Federated = local.github_oidc_arn }
-      Action    = "sts:AssumeRoleWithWebIdentity"
-      Condition = {
-        StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" }
-        StringLike   = { "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*" }
-      }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "github_actions_ecr" {
-  name = "ecr-push"
-  role = aws_iam_role.github_actions.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "ecr:GetAuthorizationToken"
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:PutImage",
-          "ecr:BatchGetImage",
-          "ecr:GetDownloadUrlForLayer",
-        ]
-        Resource = aws_ecr_repository.this.arn
-      },
-    ]
-  })
-}
-
-# --- S3 bucket holding the model artifact ---
-resource "aws_s3_bucket" "model" {
-  bucket        = "${var.project_name}-model-${data.aws_caller_identity.current.account_id}"
-  force_destroy = true
 }
 
 # --- IAM role the Lambda runs as (logs + read the model from S3) ---
@@ -130,7 +66,7 @@ resource "aws_iam_role_policy" "lambda_model" {
     Statement = [{
       Effect   = "Allow"
       Action   = "s3:GetObject"
-      Resource = "${aws_s3_bucket.model.arn}/${local.model_key}"
+      Resource = "arn:aws:s3:::${local.model_bucket}/${local.model_key}"
     }]
   })
 }
@@ -152,7 +88,7 @@ resource "aws_lambda_function" "this" {
 
   environment {
     variables = {
-      MODEL_S3_URI = "s3://${aws_s3_bucket.model.bucket}/${local.model_key}"
+      MODEL_S3_URI = "s3://${local.model_bucket}/${local.model_key}"
     }
   }
 
@@ -196,24 +132,4 @@ resource "aws_lambda_permission" "apigw" {
   function_name = aws_lambda_function.this.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.this.execution_arn}/*/*"
-}
-
-# --- Budget tripwire (free). Emails at 80% of the monthly limit if an email is set ---
-resource "aws_budgets_budget" "monthly" {
-  name         = "${var.project_name}-monthly"
-  budget_type  = "COST"
-  limit_amount = var.budget_limit
-  limit_unit   = "USD"
-  time_unit    = "MONTHLY"
-
-  dynamic "notification" {
-    for_each = var.budget_email == "" ? [] : [1]
-    content {
-      comparison_operator        = "GREATER_THAN"
-      threshold                  = 80
-      threshold_type             = "PERCENTAGE"
-      notification_type          = "ACTUAL"
-      subscriber_email_addresses = [var.budget_email]
-    }
-  }
 }

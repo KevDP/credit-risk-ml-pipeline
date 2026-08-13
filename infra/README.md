@@ -1,66 +1,68 @@
 # Deploy (infra/)
 
-The FastAPI app runs on AWS Lambda (container image) behind an HTTP API Gateway.
-GitHub Actions builds and pushes the image (no local Docker); the Lambda streams
-the model from S3 at cold start. Terraform runs locally. Scale-to-zero: idle cost is ~$0.
-Tear down with `terraform destroy` to return to $0.
+Deployment is fully CI/CD via GitHub Actions (no local AWS credentials needed).
+The FastAPI app runs on AWS Lambda (container image) behind an HTTP API Gateway;
+the Lambda streams the model from S3 at cold start. Scale-to-zero: idle cost ~$0.
 
-## Prerequisites
+Two layers:
 
-- AWS credentials configured locally (`aws configure`).
-- Terraform >= 1.5.
-- The GitHub OIDC provider must exist in the account. It usually already does; if
-  not, add `-var 'create_github_oidc_provider=true'` to the first apply.
+- **infra/bootstrap** — one-time setup, run from AWS CloudShell. Creates the OIDC
+  deploy role, the Terraform state backend (S3 + DynamoDB), the model bucket, and
+  the budget alarm. These persist across deploy/destroy cycles.
+- **infra/** — the app stack (ECR, Lambda, API Gateway). Deployed and destroyed by
+  the GitHub Actions workflows using the OIDC role and remote state.
 
-## Steps (run from the repository root)
+## 1. Bootstrap (once, in AWS CloudShell)
 
-1. Initialize and create the ECR repo, the CI role, and the model bucket:
+CloudShell (the browser terminal in the AWS console) already has your credentials.
 
-   ```bash
-   terraform -chdir=infra init
-   terraform -chdir=infra apply \
-     -target=aws_iam_role_policy.github_actions_ecr \
-     -target=aws_s3_bucket.model
-   ```
+```bash
+# install terraform
+curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip
+unzip -o terraform.zip && sudo mv terraform /usr/local/bin/
 
-2. In GitHub → repo Settings → Secrets and variables → Actions → Variables, add
-   `AWS_DEPLOY_ROLE_ARN` with the value of:
+# get the code and apply the bootstrap
+git clone https://github.com/KevDP/credit-risk-ml-pipeline.git
+cd credit-risk-ml-pipeline
+terraform -chdir=infra/bootstrap init
+terraform -chdir=infra/bootstrap apply -var 'budget_email=you@example.com'
+```
 
-   ```bash
-   terraform -chdir=infra output -raw github_actions_role_arn
-   ```
+Upload the model (CloudShell **Actions > Upload file** > `models/model.joblib`), then:
 
-3. Upload the trained model to S3:
+```bash
+aws s3 cp model.joblib "s3://$(terraform -chdir=infra/bootstrap output -raw model_bucket)/model.joblib"
+```
 
-   ```bash
-   aws s3 cp models/model.joblib "s3://$(terraform -chdir=infra output -raw model_bucket)/model.joblib"
-   ```
+## 2. Configure GitHub
 
-4. Run the **Build and push serving image** workflow (GitHub → Actions → Run
-   workflow). It builds the image and pushes it to ECR.
+Repo > Settings > Secrets and variables > Actions > **Variables**: add
+`AWS_DEPLOY_ROLE_ARN` set to:
 
-5. Deploy the Lambda + API Gateway (optionally set an email for budget alerts):
+```bash
+terraform -chdir=infra/bootstrap output -raw deploy_role_arn
+```
 
-   ```bash
-   terraform -chdir=infra apply -var 'budget_email=you@example.com'
-   ```
+## 3. Deploy
 
-6. Test the live endpoint:
+GitHub > Actions > **Deploy** > Run workflow. It assumes the OIDC role, creates
+ECR, builds and pushes the image, and applies the Lambda + API Gateway. The
+scoring URL is printed at the end of the run.
 
-   ```bash
-   curl -s -X POST "$(terraform -chdir=infra output -raw predict_url)" \
-     -H "Content-Type: application/json" \
-     -d '{"loan_amnt":10000,"annual_inc":60000,"dti":15.0,"open_acc":8,"pub_rec":0,"revol_bal":5000,"revol_util":30.0,"total_acc":20,"delinq_2yrs":0,"inq_last_6mths":1,"mort_acc":1,"pub_rec_bankruptcies":0,"fico_range_low":700,"fico_range_high":704,"term":" 36 months","emp_length":"5 years","issue_d":"Jan-2018","earliest_cr_line":"Jan-2005","home_ownership":"RENT","verification_status":"Verified","purpose":"credit_card","addr_state":"CA"}'
-   ```
+## 4. Test
 
-7. Tear down (back to $0):
+```bash
+curl -s -X POST "<predict_url>" -H "Content-Type: application/json" \
+  -d '{"loan_amnt":10000,"annual_inc":60000,"dti":15.0,"open_acc":8,"pub_rec":0,"revol_bal":5000,"revol_util":30.0,"total_acc":20,"delinq_2yrs":0,"inq_last_6mths":1,"mort_acc":1,"pub_rec_bankruptcies":0,"fico_range_low":700,"fico_range_high":704,"term":" 36 months","emp_length":"5 years","issue_d":"Jan-2018","earliest_cr_line":"Jan-2005","home_ownership":"RENT","verification_status":"Verified","purpose":"credit_card","addr_state":"CA"}'
+```
 
-   ```bash
-   terraform -chdir=infra destroy
-   ```
+## 5. Tear down
+
+GitHub > Actions > **Destroy** > Run workflow. Back to $0. The bootstrap resources
+stay (they cost ~cents).
 
 ## Cost
 
-Idle is ~$0 (Lambda and API Gateway scale to zero; free tier covers demo traffic).
-Persistent cost is the ECR image (~$0.10/month) plus a few cents for the model in
-S3, while they are stored. The budget alarm is a free tripwire.
+Idle ~$0 (Lambda and API Gateway scale to zero). Persistent while deployed: the
+ECR image (~$0.10/month) and the model in S3 (cents). Destroy removes the app
+stack; the state bucket, model bucket, and budget in bootstrap persist.
