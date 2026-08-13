@@ -40,6 +40,11 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 locals {
   github_oidc_arn = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
+  # GitHub sends immutable IDs in the OIDC subject
+  # (repo:OWNER@<id>/REPO@<id>:...), so match owner/repo names with a wildcard
+  # for the numeric IDs. Logins cannot contain '@', so this stays scoped.
+  repo_parts  = split("/", var.github_repo)
+  sub_pattern = "repo:${local.repo_parts[0]}@*/${local.repo_parts[1]}@*:*"
 }
 
 # --- Deploy role: GitHub Actions assumes this via OIDC to run Terraform + push the image ---
@@ -54,7 +59,7 @@ resource "aws_iam_role" "deploy" {
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" }
-        StringLike   = { "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*" }
+        StringLike   = { "token.actions.githubusercontent.com:sub" = local.sub_pattern }
       }
     }]
   })
