@@ -208,7 +208,6 @@
 <body>
   <header>
     <h1>CI/CD: deploy to AWS via OIDC</h1>
-    <p>No AWS keys on the laptop or in the repo. GitHub Actions federates into a scoped role with short-lived credentials.</p>
   </header>
 
   <main>
@@ -317,16 +316,9 @@
       <div class="oidc-pill" style="left:995px; top:196px;">temporary credentials</div>
 
       <!-- Terraform annotation over the AWS block -->
-      <div class="annotation" style="left:1200px; top:108px;">terraform apply &middot; remote state in S3</div>
+      <div class="annotation" style="left:1200px; top:108px;">terraform apply</div>
     </div>
   </main>
 
-  <div class="legend">
-    <span><i class="swatch dev"></i>developer</span>
-    <span><i class="swatch gha"></i>CI runner</span>
-    <span><i class="swatch oidc"></i>federated identity</span>
-    <span><i class="swatch aws"></i>AWS resources</span>
-    <span><i class="swatch domain"></i>live endpoint</span>
-  </div>
 </body>
 </html>

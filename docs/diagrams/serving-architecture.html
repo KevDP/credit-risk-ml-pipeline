@@ -168,7 +168,6 @@
 <body>
   <header>
     <h1>Serving: scale-to-zero inference</h1>
-    <p>One Lambda, one model in S3. Nothing runs, and nothing is billed, when no one is calling.</p>
   </header>
 
   <main>
@@ -215,7 +214,7 @@
         <div class="frame aws"><img src="assets/aws-api-gateway.svg" alt="API Gateway"/></div>
         <div class="label">API Gateway<span class="sub">HTTP API</span></div>
       </div>
-      <div class="annotation route" style="left:430px; top:150px;">POST /predict</div>
+      <div class="annotation route" style="left:430px; top:130px;">POST /predict</div>
 
       <!-- 3. Lambda with numbered inference pipeline -->
       <div class="block lambda-block" style="left:760px; top:260px;">
@@ -233,7 +232,7 @@
           </ol>
         </div>
       </div>
-      <div class="annotation" style="left:760px; top:120px;">container image &middot; scale-to-zero</div>
+      <div class="annotation" style="left:760px; top:120px;">container image </div>
 
       <!-- 4. Response -->
       <div class="block" style="left:1120px; top:260px;">
