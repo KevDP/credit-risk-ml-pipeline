@@ -190,16 +190,7 @@ python -m credit_risk.validate          # baseline, calibration, temporal CV
 python -m credit_risk.ablation          # the LC-score ablation
 ```
 
-## Cost
-
-Designed to stay at $0 at rest and single-digit dollars under a demo:
-
-- Serverless inference (Lambda + API Gateway), scale-to-zero.
-- Ephemeral: deploy for a demo, `terraform destroy` back to $0.
-- The only standing cost is pennies of S3 and the ECR image (~$0.10/month).
-- A budget alarm caps the worst case.
-
-## Honest limitations
+## Limitations
 
 - **Dollar magnitudes are illustrative, the comparison is robust.** The recent
   test vintages are right-censored: good long-term loans that are still `Current`

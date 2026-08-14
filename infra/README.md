@@ -60,9 +60,3 @@ curl -s -X POST "<predict_url>" -H "Content-Type: application/json" \
 
 GitHub > Actions > **Destroy** > Run workflow. Back to $0. The bootstrap resources
 stay (they cost ~cents).
-
-## Cost
-
-Idle ~$0 (Lambda and API Gateway scale to zero). Persistent while deployed: the
-ECR image (~$0.10/month) and the model in S3 (cents). Destroy removes the app
-stack; the state bucket, model bucket, and budget in bootstrap persist.
