@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CI/CD — GitHub Actions to AWS via OIDC (no stored keys)</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --title: #e2e8f0;
+      --subtitle: #64748b;
+      --annot: #94a3b8;
+
+      --dev-brd: #06b6d4;
+      --dev-bg: rgba(6, 182, 212, 0.06);
+      --dev-fg: #22d3ee;
+
+      --gha-brd: #3b82f6;
+      --gha-bg: rgba(59, 130, 246, 0.08);
+      --gha-fg: #93c5fd;
+
+      --oidc-brd: #a78bfa;
+      --oidc-bg: rgba(167, 139, 250, 0.10);
+      --oidc-fg: #c4b5fd;
+
+      --aws-brd: #f59e0b;
+      --aws-bg: rgba(245, 158, 11, 0.08);
+      --aws-fg: #fbbf24;
+
+      --domain-brd: #10b981;
+      --domain-bg: rgba(16, 185, 129, 0.08);
+      --domain-fg: #34d399;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--title);
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 36px 16px 28px;
+    }
+
+    header { text-align: center; margin-bottom: 26px; }
+    header h1 {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      font-size: 26px;
+      color: var(--title);
+      margin: 0;
+      letter-spacing: -0.01em;
+    }
+    header p {
+      margin: 10px 0 0; font-size: 13.5px; color: var(--subtitle);
+    }
+
+    main {
+      width: 100%;
+      display: flex;
+      justify-content: flex-start;
+      overflow-x: auto;
+    }
+    main > * { margin-inline: auto; }
+
+    .diagram-wrap {
+      position: relative;
+      width: 1540px;
+      height: 460px;
+      flex-shrink: 0;
+    }
+
+    svg.wires {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .block {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      font-family: 'Space Mono', monospace;
+    }
+    .frame {
+      border: 2px solid;
+      border-radius: 14px;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 176px;
+      height: 176px;
+      padding: 16px;
+    }
+    .label {
+      font-size: 14px;
+      color: var(--annot);
+      text-align: center;
+      line-height: 1.4;
+    }
+    .label .sub { display: block; color: var(--subtitle); font-size: 11px; margin-top: 4px; }
+
+    .frame.dev    { border-color: var(--dev-brd);    background: var(--dev-bg); }
+    .frame.gha    { border-color: var(--gha-brd);    background: var(--gha-bg); }
+    .frame.oidc   { border-color: var(--oidc-brd);   background: var(--oidc-bg); }
+    .frame.aws    { border-color: var(--aws-brd);    background: var(--aws-bg); }
+    .frame.domain { border-color: var(--domain-brd); background: var(--domain-bg); }
+
+    .aws-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px 16px;
+      align-items: center;
+      justify-items: center;
+    }
+    .aws-grid .cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .aws-grid img { width: 44px; height: 44px; display: block; }
+    .aws-grid .name {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--aws-fg);
+    }
+
+    .oidc-pill {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      color: var(--oidc-fg);
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(167, 139, 250, 0.14);
+      border: 1.5px solid var(--oidc-brd);
+      padding: 4px 12px;
+      border-radius: 999px;
+      letter-spacing: 0.06em;
+      white-space: nowrap;
+    }
+
+    .annotation {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-family: 'Space Mono', monospace;
+      font-size: 10.5px;
+      color: var(--annot);
+      background: rgba(245, 158, 11, 0.10);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      padding: 3px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .domain-url {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--domain-fg);
+      background: rgba(16, 185, 129, 0.10);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 5px 12px;
+      border-radius: 999px;
+    }
+
+    .legend {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 26px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      font-family: 'Space Mono', monospace;
+      color: var(--subtitle);
+    }
+    .legend .swatch {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border-radius: 3px;
+      border: 2px solid;
+      margin-right: 6px;
+      vertical-align: -2px;
+    }
+    .legend .dev    { border-color: var(--dev-brd);    background: var(--dev-bg); }
+    .legend .gha    { border-color: var(--gha-brd);    background: var(--gha-bg); }
+    .legend .oidc   { border-color: var(--oidc-brd);   background: var(--oidc-bg); }
+    .legend .aws    { border-color: var(--aws-brd);    background: var(--aws-bg); }
+    .legend .domain { border-color: var(--domain-brd); background: var(--domain-bg); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CI/CD: deploy to AWS via OIDC</h1>
+    <p>No AWS keys on the laptop or in the repo. GitHub Actions federates into a scoped role with short-lived credentials.</p>
+  </header>
+
+  <main>
+    <div class="diagram-wrap">
+      <svg class="wires" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1540 460" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+            <path d="M0,0 L9,5 L0,10 Z" fill="#64748b" />
+          </marker>
+          <marker id="arrow-oidc" markerWidth="11" markerHeight="11" refX="9" refY="5.5" orient="auto">
+            <path d="M0,0 L10,5.5 L0,11 Z" fill="#a78bfa" />
+          </marker>
+        </defs>
+
+        <!-- Frames width=176 centered on: 130, 450, 790, 1200, 1420 -->
+        <line x1="220" y1="230" x2="360" y2="230" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+        <line x1="540" y1="230" x2="700" y2="230" stroke="#a78bfa" stroke-width="2.5" marker-end="url(#arrow-oidc)"/>
+        <line x1="880" y1="230" x2="1110" y2="230" stroke="#a78bfa" stroke-width="2.5" marker-end="url(#arrow-oidc)"/>
+        <line x1="1290" y1="230" x2="1330" y2="230" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+      </svg>
+
+      <!-- 1. Local dev / git push -->
+      <div class="block" style="left:130px; top:230px;">
+        <div class="frame dev">
+          <svg width="82" height="82" viewBox="0 0 24 24" fill="none"
+               stroke="#22d3ee" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="6"  r="2.2"/>
+            <circle cx="6"  cy="6"  r="2.2"/>
+            <circle cx="6"  cy="18" r="2.2"/>
+            <line x1="6"  y1="8.2" x2="6"  y2="15.8"/>
+            <path d="M18 8.2 v3 a3 3 0 0 1 -3 3 H8.2"/>
+          </svg>
+        </div>
+        <div class="label">Local dev<span class="sub">git push</span></div>
+      </div>
+
+      <!-- 2. GitHub Actions -->
+      <div class="block" style="left:450px; top:230px;">
+        <div class="frame gha">
+          <svg width="82" height="82" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10.5" fill="none" stroke="#93c5fd" stroke-width="1.6"/>
+            <path d="M14 8.5 l-4 3.5 4 3.5 z" fill="#93c5fd"/>
+          </svg>
+        </div>
+        <div class="label">GitHub Actions<span class="sub">deploy.yml</span></div>
+      </div>
+
+      <!-- 3. OIDC -->
+      <div class="block" style="left:790px; top:230px;">
+        <div class="frame oidc">
+          <svg width="82" height="82" viewBox="0 0 24 24" fill="none"
+               stroke="#c4b5fd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="10.5" width="16" height="10" rx="2"/>
+            <path d="M7.5 10.5 V7 a4.5 4.5 0 0 1 9 0 v3.5"/>
+            <circle cx="12" cy="15" r="1.3" fill="#c4b5fd"/>
+            <line x1="12" y1="16.3" x2="12" y2="18"/>
+          </svg>
+        </div>
+        <div class="label">OIDC<span class="sub">scoped IAM role</span></div>
+      </div>
+
+      <!-- 4. AWS resources grid -->
+      <div class="block" style="left:1200px; top:230px;">
+        <div class="frame aws">
+          <div class="aws-grid">
+            <div class="cell">
+              <img src="assets/aws-ecr.svg" alt="ECR"/>
+              <span class="name">ECR image</span>
+            </div>
+            <div class="cell">
+              <img src="assets/aws-lambda.svg" alt="Lambda"/>
+              <span class="name">Lambda</span>
+            </div>
+            <div class="cell">
+              <img src="assets/aws-api-gateway.svg" alt="API Gateway"/>
+              <span class="name">API Gateway</span>
+            </div>
+            <div class="cell">
+              <img src="assets/aws-s3.svg" alt="S3"/>
+              <span class="name">S3 state + model</span>
+            </div>
+          </div>
+        </div>
+        <div class="label">AWS</div>
+      </div>
+
+      <!-- 5. Live endpoint -->
+      <div class="block" style="left:1420px; top:230px;">
+        <div class="frame domain">
+          <svg width="82" height="82" viewBox="0 0 24 24" fill="none"
+               stroke="#34d399" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9.5"/>
+            <ellipse cx="12" cy="12" rx="4.5" ry="9.5"/>
+            <line x1="2.5" y1="12" x2="21.5" y2="12"/>
+            <line x1="12" y1="2.5" x2="12" y2="21.5"/>
+          </svg>
+        </div>
+        <div class="label">
+          Live endpoint
+          <span class="domain-url" style="margin-top:6px;">POST /predict</span>
+        </div>
+      </div>
+
+      <!-- OIDC-flavored pills, above the arrows -->
+      <div class="oidc-pill" style="left:620px; top:196px;">OIDC JWT</div>
+      <div class="oidc-pill" style="left:995px; top:196px;">temporary credentials</div>
+
+      <!-- Terraform annotation over the AWS block -->
+      <div class="annotation" style="left:1200px; top:108px;">terraform apply &middot; remote state in S3</div>
+    </div>
+  </main>
+
+  <div class="legend">
+    <span><i class="swatch dev"></i>developer</span>
+    <span><i class="swatch gha"></i>CI runner</span>
+    <span><i class="swatch oidc"></i>federated identity</span>
+    <span><i class="swatch aws"></i>AWS resources</span>
+    <span><i class="swatch domain"></i>live endpoint</span>
+  </div>
+</body>
+</html>

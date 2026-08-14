@@ -26,6 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = REPO_ROOT / "data"
 MODELS_DIR = REPO_ROOT / "models"
 EXPERIMENTS_DIR = REPO_ROOT / "experiments"
+DOCS_DIR = REPO_ROOT / "docs"
 
 # Raw Lending Club file as published on Kaggle (wordsforthewise/lending-club).
 # Not committed; see data/README.md for download instructions.

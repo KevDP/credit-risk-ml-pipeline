@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Credit-risk serving — scale-to-zero inference on AWS</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --title: #e2e8f0;
+      --subtitle: #64748b;
+      --annot: #94a3b8;
+
+      --client-brd: #06b6d4;
+      --client-bg:  rgba(6, 182, 212, 0.06);
+      --client-fg:  #22d3ee;
+
+      --aws-brd: #f59e0b;
+      --aws-bg:  rgba(245, 158, 11, 0.08);
+      --aws-fg:  #fbbf24;
+
+      --lambda-brd: #fb923c;
+      --lambda-bg:  rgba(251, 146, 60, 0.10);
+
+      --domain-brd: #10b981;
+      --domain-bg:  rgba(16, 185, 129, 0.08);
+      --domain-fg:  #34d399;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg); color: var(--title);
+      margin: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 36px 16px 28px;
+    }
+    header { text-align: center; margin-bottom: 26px; }
+    header h1 {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700; font-size: 26px;
+      color: var(--title); margin: 0;
+      letter-spacing: -0.01em;
+    }
+    header p {
+      margin: 10px 0 0; font-size: 13.5px; color: var(--subtitle);
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    main { width: 100%; display: flex; justify-content: flex-start; overflow-x: auto; }
+    main > * { margin-inline: auto; }
+
+    .diagram-wrap {
+      position: relative;
+      width: 1360px;
+      height: 670px;
+      flex-shrink: 0;
+    }
+    svg.wires {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    .block {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      display: flex; flex-direction: column;
+      align-items: center; gap: 12px;
+      font-family: 'Space Mono', monospace;
+    }
+    .frame {
+      border: 2px solid;
+      border-radius: 14px;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      width: 160px; height: 160px;
+      padding: 14px;
+    }
+    .frame img { width: 76px; height: 76px; display: block; }
+    .label { font-size: 13px; color: var(--annot); text-align: center; line-height: 1.4; }
+    .label .sub {
+      display: block;
+      color: var(--subtitle);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    .frame.client { border-color: var(--client-brd); background: var(--client-bg); }
+    .frame.aws    { border-color: var(--aws-brd);    background: var(--aws-bg); }
+    .frame.lambda { border-color: var(--lambda-brd); background: var(--lambda-bg); }
+    .frame.domain { border-color: var(--domain-brd); background: var(--domain-bg); }
+
+    .frame.sidecar { width: 120px; height: 120px; padding: 12px; }
+    .frame.sidecar img { width: 58px; height: 58px; }
+
+    /* Lambda is wider, houses the numbered inference pipeline */
+    .lambda-block .frame {
+      width: 268px; height: 232px;
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 18px;
+    }
+    .lambda-block .lambda-head {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--lambda-brd);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px; font-weight: 700;
+    }
+    .lambda-block .lambda-head img { width: 24px; height: 24px; }
+    .lambda-block ol {
+      list-style: none; margin: 0; padding: 0;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--annot);
+      counter-reset: step;
+      align-self: stretch;
+    }
+    .lambda-block ol li {
+      counter-increment: step;
+      padding-left: 20px;
+      position: relative;
+    }
+    .lambda-block ol li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0; top: 0;
+      color: var(--lambda-brd);
+      font-weight: 700;
+    }
+
+    .annotation {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-family: 'Space Mono', monospace;
+      font-size: 10.5px;
+      color: var(--annot);
+      background: rgba(245, 158, 11, 0.10);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      padding: 3px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .annotation.route {
+      color: var(--client-fg);
+      background: rgba(6, 182, 212, 0.10);
+      border-color: rgba(6, 182, 212, 0.45);
+    }
+    .wire-label {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--subtitle);
+      background: var(--bg);
+      padding: 1px 6px;
+      white-space: nowrap;
+    }
+
+    .json { font-family: 'Space Mono', monospace; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Serving: scale-to-zero inference</h1>
+    <p>One Lambda, one model in S3. Nothing runs, and nothing is billed, when no one is calling.</p>
+  </header>
+
+  <main>
+    <div class="diagram-wrap">
+      <svg class="wires" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 620" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path d="M0,0 L7,4 L0,8 Z" fill="#64748b" />
+          </marker>
+          <marker id="arrow-dim" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path d="M0,0 L7,4 L0,8 Z" fill="#475569" />
+          </marker>
+        </defs>
+
+        <!-- Top row: Client (edges 50-210) -> API GW (350-510) -> Lambda (626-894) -> Response (1040-1200) -->
+        <line x1="220" y1="260" x2="335" y2="260" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+        <line x1="520" y1="260" x2="611" y2="260" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+        <line x1="904" y1="260" x2="1025" y2="260" stroke="#64748b" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+        <!-- Sidecars fan out from Lambda bottom (760, 376) to S3 (690, 478) and CloudWatch (850, 478) -->
+        <line x1="760" y1="380" x2="695" y2="476" stroke="#475569" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrow-dim)"/>
+        <line x1="760" y1="380" x2="845" y2="476" stroke="#475569" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#arrow-dim)"/>
+      </svg>
+
+      <!-- 1. Client -->
+      <div class="block" style="left:130px; top:260px;">
+        <div class="frame client">
+          <svg width="82" height="82" viewBox="0 0 116 84" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="1" width="114" height="82" rx="6" ry="6" fill="none" stroke="#22d3ee" stroke-width="1.5"/>
+            <line x1="1" y1="20" x2="115" y2="20" stroke="#22d3ee" stroke-width="1.5"/>
+            <circle cx="10" cy="10" r="3" fill="#ef4444"/>
+            <circle cx="22" cy="10" r="3" fill="#f59e0b"/>
+            <circle cx="34" cy="10" r="3" fill="#10b981"/>
+            <text x="10" y="42" fill="#22d3ee" font-family="monospace" font-size="11" font-weight="700">$ curl</text>
+            <rect x="10" y="50" width="92" height="4" rx="1" fill="#22d3ee" fill-opacity="0.5"/>
+            <rect x="10" y="60" width="70" height="4" rx="1" fill="#22d3ee" fill-opacity="0.3"/>
+          </svg>
+        </div>
+        <div class="label">Client<span class="sub">curl / app</span></div>
+      </div>
+
+      <!-- 2. API Gateway -->
+      <div class="block" style="left:430px; top:260px;">
+        <div class="frame aws"><img src="assets/aws-api-gateway.svg" alt="API Gateway"/></div>
+        <div class="label">API Gateway<span class="sub">HTTP API</span></div>
+      </div>
+      <div class="annotation route" style="left:430px; top:150px;">POST /predict</div>
+
+      <!-- 3. Lambda with numbered inference pipeline -->
+      <div class="block lambda-block" style="left:760px; top:260px;">
+        <div class="frame lambda">
+          <div class="lambda-head">
+            <img src="assets/aws-lambda.svg" alt="Lambda"/>
+            <span>Lambda</span>
+          </div>
+          <ol>
+            <li>Load model (cached)</li>
+            <li>Validate payload (Pydantic)</li>
+            <li>Engineer features</li>
+            <li>LightGBM predict_proba</li>
+            <li>Return P(default)</li>
+          </ol>
+        </div>
+      </div>
+      <div class="annotation" style="left:760px; top:120px;">container image &middot; scale-to-zero</div>
+
+      <!-- 4. Response -->
+      <div class="block" style="left:1120px; top:260px;">
+        <div class="frame domain">
+          <svg width="76" height="76" viewBox="0 0 24 24" fill="none"
+               stroke="#34d399" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3 H5 a2 2 0 0 0 -2 2 v14 a2 2 0 0 0 2 2 h3"/>
+            <path d="M16 3 h3 a2 2 0 0 1 2 2 v14 a2 2 0 0 1 -2 2 h-3"/>
+            <line x1="9" y1="9"  x2="15" y2="9"/>
+            <line x1="9" y1="13" x2="14" y2="13"/>
+          </svg>
+        </div>
+        <div class="label">Response<span class="sub json">{ "default_probability": 0.387 }</span></div>
+      </div>
+
+      <!-- Sidecars: S3 model + CloudWatch -->
+      <div class="block" style="left:690px; top:540px;">
+        <div class="frame aws sidecar"><img src="assets/aws-s3.svg" alt="S3"/></div>
+        <div class="label">S3<span class="sub">model.joblib</span></div>
+      </div>
+      <div class="wire-label" style="left:672px; top:430px;">load on cold start</div>
+
+      <div class="block" style="left:850px; top:540px;">
+        <div class="frame aws sidecar"><img src="assets/aws-cloudwatch.svg" alt="CloudWatch"/></div>
+        <div class="label">CloudWatch<span class="sub">logs + metrics</span></div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

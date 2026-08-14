@@ -57,6 +57,8 @@ See the ablation below.
 
 **Top risk drivers (mean absolute SHAP):** term_months (0.35), fico_score (0.32), loan_amnt (0.18), dti (0.18), annual_inc (0.15), inq_last_6mths (0.13). Loan term and FICO dominate. emp_length and credit_history_length contribute little.
 
+![SHAP feature importance](imgs/shap_importance.png)
+
 ## Baseline comparison
 
 Against a logistic-regression scorecard (the interpretable, regulator-friendly standard in credit), on the same held-out test:
@@ -67,6 +69,8 @@ Against a logistic-regression scorecard (the interpretable, regulator-friendly s
 | **LightGBM** | **0.703** | **0.384** | **0.215** |
 
 LightGBM improves ROC-AUC by +0.020, enough to justify the added complexity, while the interpretable baseline stays within ~2 points as a fallback.
+
+![LightGBM vs logistic baseline, and the effect of isotonic calibration on the Brier score](imgs/model_comparison.png)
 
 ## Hyperparameter tuning
 
@@ -94,6 +98,8 @@ Expanding-window backtest: for each vintage year, train on all earlier years and
 
 The weakest year (2010) has the smallest training history. From 2014 onward the model is stable around 0.70 to 0.72.
 
+![Out-of-time ROC-AUC by vintage](imgs/temporal_stability.png)
+
 ## Ablation: contribution of LC's own risk score
 
 Adding grade, sub_grade, and int_rate back:
@@ -105,6 +111,8 @@ Adding grade, sub_grade, and int_rate back:
 | **Lift** | **+0.012** | **+0.011** |
 
 LC's proprietary score adds only ~1.2 AUC points. Because grade and interest rate are themselves derived from the same bureau signals the model already uses, they carry little independent information. The transparent, independent model captures roughly 98% of the ranking power of the black-box score, which is the reason to exclude it: near-equal accuracy with full interpretability.
+
+![Ablation: LC proprietary score adds only +0.012 ROC-AUC](imgs/ablation.png)
 
 ## Cost calibration and decision threshold
 
@@ -128,6 +136,8 @@ The data-calibrated cutoff earns **2.1x** the fixed assumption and captures **98
 Limitations). The relative comparison is the robust result; the dollar figures are
 illustrative, not expected profit.
 
+![Profit vs decision threshold, with the fixed, data-calibrated, and oracle cutoffs marked](imgs/profit_curve.png)
+
 ## Limitations
 
 - **Right-censoring:** the recent test vintages over-represent defaults, because good long-term loans were still "Current" at the data snapshot and were dropped. This inflates the stakes (approve-all looks catastrophic) and distorts absolute dollar figures. A maturity filter would de-bias the magnitudes; the relative findings hold regardless.
@@ -136,6 +146,16 @@ illustrative, not expected profit.
 - **Modest discrimination:** ROC-AUC 0.70 reflects both the intrinsic difficulty of the problem and the deliberate exclusion of LC's score.
 - **Fair lending:** addr_state and other features can act as proxies for protected classes. A production model would require a disparate-impact audit; this project does not perform one.
 - **Single lender, single era:** trained on one platform's 2007 to 2018 book; generalization to other lenders or later periods is untested.
+
+## Serving and deployment
+
+The model is served behind an HTTP API Gateway and a container-image Lambda that
+loads the artifact from S3 on cold start (see the architecture diagram in the
+README). Training and serving import the same feature engineering and model
+contract from the `credit_risk` package, so there is a single source of truth.
+The stack was deployed on AWS through GitHub Actions (OIDC, no stored keys) and
+verified live: the `/predict` endpoint returned `0.3865555`, identical to the
+local smoke test, then it was torn down with `terraform destroy` to return to $0.
 
 ## Reproducing
 
