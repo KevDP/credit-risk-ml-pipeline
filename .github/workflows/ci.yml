@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, dev]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   lint-and-test:
@@ -17,11 +18,41 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      # The `data` extra carries duckdb, which the mart contract test needs. Without
+      # it that test skips instead of failing, and the guard disappears silently.
       - name: Install package and dev tools
-        run: pip install -e ".[dev,serving]"
+        run: pip install -e ".[dev,serving,data]"
 
       - name: Lint (ruff)
         run: ruff check .
 
+      # dbt gets its own environment: dbt-core pins jinja2, click and protobuf
+      # tightly enough to downgrade the ML stack when installed alongside it.
+      - name: Install dbt
+        run: |
+          python -m venv .venv-dbt
+          .venv-dbt/bin/python -m pip install --upgrade pip
+          .venv-dbt/bin/python -m pip install -r requirements-dbt.txt
+
+      # Contracts run against the committed regression fixture rather than the
+      # 392 MB export. The export is frozen at 2018Q4, so rebuilding it on every
+      # push re-answers a question whose answer cannot change; what changes on a
+      # push is the code, and the fixture tests the code. It carries the rows that
+      # broke the build once (embedded summary rows, the 2007 launch cohort with
+      # its nulls, in-progress loans) so those stay regressions, not anecdotes.
+      # The full 2.26M-row build runs locally: make dbt-build
+      - name: Build feature mart and run data quality contracts
+        working-directory: dbt
+        run: >
+          ../.venv-dbt/bin/dbt build --profiles-dir . --target ci
+          --vars '{"raw_accepted_file": "../tests/fixtures/lending_club_sample.csv"}'
+
+      # The contract test skips when it finds no warehouse. Asserting the file is
+      # here turns a silent skip into a failed step.
+      - name: Verify the warehouse was built
+        run: test -f data/warehouse_ci.duckdb
+
       - name: Test (pytest)
+        env:
+          CREDIT_RISK_WAREHOUSE: data/warehouse_ci.duckdb
         run: pytest -q

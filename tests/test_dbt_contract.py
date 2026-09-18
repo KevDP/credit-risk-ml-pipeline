@@ -23,6 +23,7 @@ checkout without the raw Lending Club file still runs green.
 from __future__ import annotations
 
 import csv
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -31,11 +32,18 @@ import pytest
 from credit_risk import config, dbt_seeds
 from credit_risk.features import engineer_features
 
-# Enough rows to exercise every branch (both terms, the full emp_length map,
-# null handling) while keeping the test well under a second.
+# Upper bound on the rows compared, to keep the test well under a second. The
+# fixture build holds fewer than this, so the sample is whatever is available
+# above the floor: what makes the comparison meaningful is that the rows cover
+# every parsing branch, not that there is an exact number of them.
 CONTRACT_SAMPLE_SIZE = 5_000
+MINIMUM_SAMPLE_SIZE = 500
 
-WAREHOUSE = config.DATA_DIR / "warehouse.duckdb"
+# Which warehouse to compare against. The fixture build writes its own file so it
+# never overwrites the full local one, and CI points here at that file.
+WAREHOUSE = Path(
+    os.environ.get("CREDIT_RISK_WAREHOUSE", str(config.DATA_DIR / "warehouse.duckdb"))
+)
 
 
 def _read_seed(path: Path) -> list[tuple[str, ...]]:
@@ -95,7 +103,9 @@ def test_mart_matches_engineer_features() -> None:
             """
         ).df()
 
-    assert len(raw) == CONTRACT_SAMPLE_SIZE, "staging model is smaller than the sample size"
+    assert len(raw) >= MINIMUM_SAMPLE_SIZE, (
+        f"{WAREHOUSE} holds only {len(raw)} staged rows, too few to compare meaningfully"
+    )
     assert len(actual) == len(raw), "mart and staging disagree on row count for the same ids"
 
     expected = engineer_features(raw)

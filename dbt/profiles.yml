@@ -8,3 +8,9 @@ credit_risk:
       # Lives under data/, which is already gitignored in full.
       path: "../data/warehouse.duckdb"
       threads: 4
+    # Used by the fixture build (CI, and locally without clobbering the real
+    # warehouse). Same models and same contracts, different source and file.
+    ci:
+      type: duckdb
+      path: "../data/warehouse_ci.duckdb"
+      threads: 4
