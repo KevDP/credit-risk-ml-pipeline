@@ -1,6 +1,6 @@
 """Phase 1 robustness study: model comparison, calibration, temporal stability.
 
-Three checks that back the modeling choices:
+Three situations that back the modeling choices:
 
   1. Baseline vs GBM: does LightGBM beat a logistic-regression scorecard by enough to justify the added complexity?
 

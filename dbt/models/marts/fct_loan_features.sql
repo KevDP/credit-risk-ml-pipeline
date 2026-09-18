@@ -1,5 +1,4 @@
--- The model-ready feature mart: the SQL counterpart of
--- credit_risk.features.engineer_features.
+-- The model-ready feature mart: the SQL counterpart of credit_risk.features.engineer_features.
 --
 -- Only application-time columns appear here. The singular test
 -- assert_mart_matches_allowlist.sql fails the build if this model grows a

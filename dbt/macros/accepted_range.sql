@@ -3,7 +3,7 @@
 
     dbt ships not_null, unique, accepted_values and relationships, but no range
     test. Rather than pull in dbt_utils for this one macro (nothing else in the
-    project needs it), the ten lines live here.
+    project needs it).
 
     NULLs pass: whether a column may be null is the job of the not_null test, so
     keeping the two concerns separate means a failure names one problem, not two.
