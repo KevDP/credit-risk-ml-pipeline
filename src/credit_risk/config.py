@@ -140,6 +140,11 @@ CATEGORICAL_FEATURES = [
 TERM_COLUMN = "term"              # " 36 months" -> 36
 EMP_LENGTH_COLUMN = "emp_length"  # "< 1 year".."10+ years" -> 0..10
 
+# Lending Club's loan identifier. Known at application time and not a feature:
+# it is the primary key of the feature mart, which is what makes uniqueness
+# testable and lets the SQL and pandas paths be compared row by row.
+LOAN_ID_COLUMN = "id"
+
 # Raw columns consumed only to derive features (not used directly).
 FICO_LOW_COLUMN = "fico_range_low"
 FICO_HIGH_COLUMN = "fico_range_high"

@@ -1,0 +1,51 @@
+version: 2
+
+models:
+  - name: stg_loans
+    description: >
+      Lending Club accepted loans restricted to application-time source columns,
+      with the binary label resolved from loan_status. One row per loan whose
+      outcome is known; in-progress loans are dropped by the join against the
+      label seed.
+    columns:
+      - name: loan_status
+        description: Raw outcome field. Post-origination, so it stops here.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('loan_status_labels')
+                field: loan_status
+
+      - name: default
+        quote: true
+        description: 1 if the borrower failed to repay, 0 if the loan was repaid.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+      # The four columns every derived feature depends on. If any is null the
+      # corresponding feature is silently null downstream, so the failure is
+      # caught at the source instead of at the mart.
+      - name: term
+        tests:
+          - not_null
+      - name: issue_d
+        tests:
+          - not_null
+      - name: earliest_cr_line
+        description: >
+          Null for 29 loans, all issued between 2007-06 and 2007-08: Lending
+          Club's first three months, before the field was collected reliably.
+          The contract is scoped past that cohort rather than loosened, so a
+          null in any later vintage still breaks the build.
+        tests:
+          - not_null:
+              config:
+                where: "strptime(issue_d, '%b-%Y') >= '2007-09-01'"
+      - name: fico_range_low
+        tests:
+          - not_null

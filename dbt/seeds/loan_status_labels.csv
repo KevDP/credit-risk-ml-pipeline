@@ -1,0 +1,6 @@
+loan_status,label
+Charged Off,1
+Default,1
+Does not meet the credit policy. Status:Charged Off,1
+Does not meet the credit policy. Status:Fully Paid,0
+Fully Paid,0

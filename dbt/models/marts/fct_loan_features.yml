@@ -1,0 +1,166 @@
+version: 2
+
+models:
+  - name: fct_loan_features
+    description: >
+      Model-ready features, one row per labeled loan. Every column is known at
+      application time except `default` (the supervised target) and `issue_d`
+      (the out-of-time split key and partition grain), both declared in the
+      allowlist seed with their role.
+
+      Ranges below are contracts against Lending Club's documented domains, not
+      aspirations: a failure means either the source changed or the parsing did.
+    columns:
+      # --- Primary key
+      - name: id
+        description: Lending Club's loan identifier. One row per loan.
+        tests:
+          - not_null
+          - unique
+
+      # --- Target and partition key
+      - name: default
+        quote: true
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+      - name: issue_d
+        description: Origination month, parsed to a DATE. Partition grain.
+        tests:
+          - not_null
+
+      # --- Derived features
+      - name: term_months
+        description: Lending Club offers 36 and 60 month terms only.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [36, 60]
+                quote: false
+
+      - name: fico_score
+        description: Midpoint of the reported FICO band.
+        tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 300
+                max_value: 900
+
+      - name: emp_length_years
+        description: Null is meaningful (employment length not reported).
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 10
+
+      - name: credit_history_length
+        description: >
+          Years from earliest credit line to origination. Inherits the 29 nulls
+          of earliest_cr_line, all in the 2007-06 to 2007-08 launch cohort.
+        tests:
+          - not_null:
+              config:
+                where: "issue_d >= '2007-09-01'"
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+
+      # --- Raw numeric features
+      - name: loan_amnt
+        tests:
+          - not_null
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100000
+
+      - name: annual_inc
+        description: >
+          Null for 4 loans, all issued between 2007-06 and 2007-08 and all with
+          home_ownership = 'NONE'. Same launch cohort as earliest_cr_line, so
+          the contract is scoped the same way.
+        tests:
+          - not_null:
+              config:
+                where: "issue_d >= '2007-09-01'"
+          - accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: dti
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: -1
+                max_value: 1000
+
+      - name: revol_util
+        description: A percentage; Lending Club reports values above 100.
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1000
+
+      - name: open_acc
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: total_acc
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: revol_bal
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: pub_rec
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: delinq_2yrs
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: inq_last_6mths
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: mort_acc
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+      - name: pub_rec_bankruptcies
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+
+      # --- Categorical features
+      - name: home_ownership
+        tests:
+          - not_null
+      - name: verification_status
+        tests:
+          - not_null
+      - name: purpose
+        tests:
+          - not_null
+      - name: addr_state
+        tests:
+          - not_null

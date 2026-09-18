@@ -1,0 +1,10 @@
+# Committed on purpose: the warehouse is a local DuckDB file, so there are no
+# credentials here. dbt is invoked with --profiles-dir . from the dbt/ folder.
+credit_risk:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      # Lives under data/, which is already gitignored in full.
+      path: "../data/warehouse.duckdb"
+      threads: 4

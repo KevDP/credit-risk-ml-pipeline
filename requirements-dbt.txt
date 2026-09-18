@@ -1,0 +1,18 @@
+# dbt lives in its own virtual environment (.venv-dbt), not in the project one.
+#
+# Why: dbt-core pins jinja2, click and protobuf tightly. Installing it alongside
+# the ML stack resolves protobuf down from 7.x to 6.x and drags click and jinja2
+# with it. The project venv only needs `duckdb` to read the mart (see the `data`
+# extra in pyproject.toml); dbt itself is invoked as a command, never imported.
+#
+# Why pinned: leaving the version open makes pip walk backwards through the whole
+# release history of the dependency tree. Unpinned it ran past twelve minutes
+# without installing anything; pinned it resolves immediately.
+#
+# Setup (from the repository root):
+#
+#     python -m venv .venv-dbt
+#     .venv-dbt/Scripts/python.exe -m pip install -r requirements-dbt.txt   # Windows
+#     .venv-dbt/bin/python -m pip install -r requirements-dbt.txt           # macOS / Linux
+
+dbt-duckdb==1.11.0

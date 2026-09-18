@@ -17,8 +17,20 @@ dist/
 
 # --- Virtual environments ---
 .venv/
+.venv-dbt/
 venv/
 env/
+
+# --- dbt / DuckDB ---
+# The warehouse file lives under data/ (already ignored); these guard the
+# build artifacts and any database written elsewhere.
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+# Anonymous telemetry id dbt writes on first run; machine-local, not config.
+dbt/.user.yml
+*.duckdb
+*.duckdb.wal
 
 # --- Notebooks ---
 .ipynb_checkpoints/

@@ -29,6 +29,13 @@ dev = [
     "seaborn>=0.13",
     "optuna>=3.6",
 ]
+# Reading the dbt-built feature mart (tests, scripts). dbt itself is NOT listed
+# here on purpose: dbt-core pins jinja2, click and protobuf tightly and resolving
+# it against pandas/numpy/shap/optuna downgrades the ML stack. dbt lives in its
+# own environment (.venv-dbt) and is invoked as a command, never imported.
+data = [
+    "duckdb>=1.0",
+]
 serving = [
     "fastapi>=0.111",
     "uvicorn>=0.30",
