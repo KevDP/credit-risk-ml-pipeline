@@ -9,19 +9,12 @@
 -- hardcoded NOT IN list, so the set of known outcomes has exactly one
 -- definition (config.py, via the seed).
 --
--- Why all_varchar and explicit casts instead of type sniffing:
---
---   The export carries Lending Club summary rows *inside* the data, not only at
---   the end. Line 421,097 reads "Total amount funded in policy code 1:
---   6417608175" followed by empty fields. Sniffing types from the first 20,480
---   rows infers id as BIGINT and the build then dies on that row.
---
---   Reading every column as text and casting explicitly removes the guess. A
---   value that cannot be parsed becomes NULL and is caught by the not_null
---   contracts as a named test failure with a row count, instead of an opaque
---   parser error. The pandas path never surfaced these rows at all: read_csv
---   falls back to object dtype and the summary rows were dropped by accident,
---   because their empty loan_status maps to no label.
+-- Reading every column as text and casting explicitly removes the guess. A
+-- value that cannot be parsed becomes NULL and is caught by the not_null
+-- contracts as a named test failure with a row count, instead of an opaque
+-- parser error. The pandas path never surfaced these rows at all: read_csv
+-- falls back to object dtype and the summary rows were dropped by accident,
+-- because their empty loan_status maps to no label.
 
 with source as (
 
@@ -29,7 +22,6 @@ with source as (
     from read_csv_auto(
         '{{ var("raw_accepted_file") }}',
         header = true,
-        compression = 'gzip',
         all_varchar = true
     )
 
