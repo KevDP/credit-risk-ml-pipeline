@@ -15,12 +15,20 @@
 -- `python -m credit_risk.dbt_seeds`, and tests/test_dbt_contract.py fails if the
 -- committed seed no longer matches what config produces.
 
+-- The table name and schema come from ref(). That is not cosmetic: 
+-- reading information_schema gives dbt no dependency to infer, so
+-- without a ref() call this test gets scheduled before the mart exists and
+-- reports every declared column as missing. Naming it through ref() puts the
+-- edge in the graph and the test runs after the model it checks.
+
+{%- set mart = ref('fct_loan_features') %}
+
 with mart_columns as (
 
     select lower(column_name) as column_name
     from information_schema.columns
-    where lower(table_name) = 'fct_loan_features'
-      and lower(table_schema) = lower('{{ target.schema }}')
+    where lower(table_name) = lower('{{ mart.identifier }}')
+      and lower(table_schema) = lower('{{ mart.schema }}')
 
 ),
 
